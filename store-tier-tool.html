@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>店铺分层管理工具</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+
+  :root {
+    --bg: #0f0f11;
+    --surface: #17171a;
+    --surface2: #1e1e22;
+    --border: #2a2a30;
+    --border2: #333340;
+    --text: #e8e8ec;
+    --text2: #9090a0;
+    --text3: #55555f;
+    --A: #22c55e;
+    --A-bg: #052010;
+    --A-border: #0f4020;
+    --B: #3b82f6;
+    --B-bg: #030d20;
+    --B-border: #0a2040;
+    --C: #f59e0b;
+    --C-bg: #1a1000;
+    --C-border: #3a2500;
+    --D: #ef4444;
+    --D-bg: #1a0505;
+    --D-border: #3a0f0f;
+    --accent: #7c6ee6;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans SC', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* HEADER */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: rgba(15,15,17,0.95);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+  .header-left { display: flex; align-items: baseline; gap: 16px; }
+  .logo { font-family: 'DM Mono', monospace; font-size: 15px; color: var(--accent); letter-spacing: 0.05em; }
+  .header-title { font-size: 14px; color: var(--text2); font-weight: 300; }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+
+  /* BUTTONS */
+  .btn {
+    padding: 8px 16px; border-radius: 6px; font-size: 13px;
+    font-family: 'Noto Sans SC', sans-serif; font-weight: 400;
+    cursor: pointer; border: 1px solid transparent; transition: all 0.15s;
+  }
+  .btn-ghost { background: transparent; border-color: var(--border2); color: var(--text2); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { background: #6a5dd4; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .btn-danger { background: transparent; border-color: #3a1515; color: #ef4444; }
+  .btn-danger:hover { background: #1a0505; }
+
+  /* LAYOUT */
+  .main { display: grid; grid-template-columns: 1fr 320px; min-height: calc(100vh - 61px); }
+
+  /* LEFT PANEL - TABLE */
+  .table-panel { padding: 24px 32px; overflow-x: auto; }
+  .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .panel-title { font-size: 13px; color: var(--text2); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
+  .store-count { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; }
+
+  table { width: 100%; border-collapse: collapse; min-width: 820px; }
+  thead th {
+    font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace;
+    text-transform: uppercase; letter-spacing: 0.08em; font-weight: 400;
+    padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  thead th .weight { color: var(--accent); opacity: 0.7; font-size: 10px; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:hover { background: var(--surface); }
+  tbody td { padding: 10px; vertical-align: middle; }
+
+  .store-name-cell { min-width: 120px; }
+  .store-name-input {
+    background: transparent; border: none; color: var(--text);
+    font-family: 'Noto Sans SC', sans-serif; font-size: 13px; font-weight: 400;
+    width: 100%; outline: none; padding: 4px 6px; border-radius: 4px;
+  }
+  .store-name-input:focus { background: var(--surface2); }
+
+  .num-input {
+    background: transparent; border: 1px solid transparent;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px;
+    width: 90px; padding: 4px 6px; border-radius: 4px; outline: none;
+    text-align: right; transition: all 0.15s;
+  }
+  .num-input:focus { background: var(--surface2); border-color: var(--border2); }
+  .num-input:hover { border-color: var(--border); }
+
+  .score-cell { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; text-align: right; padding-right: 14px; }
+  .tier-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 6px;
+    font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500;
+    border: 1px solid;
+  }
+  .tier-A { color: var(--A); background: var(--A-bg); border-color: var(--A-border); }
+  .tier-B { color: var(--B); background: var(--B-bg); border-color: var(--B-border); }
+  .tier-C { color: var(--C); background: var(--C-bg); border-color: var(--C-border); }
+  .tier-D { color: var(--D); background: var(--D-bg); border-color: var(--D-border); }
+  .tier-none { color: var(--text3); background: var(--surface); border-color: var(--border); }
+
+  .del-btn {
+    background: none; border: none; color: var(--text3); cursor: pointer;
+    padding: 4px 6px; border-radius: 4px; font-size: 14px; transition: all 0.15s;
+  }
+  .del-btn:hover { color: var(--D); background: var(--D-bg); }
+
+  .add-row-btn {
+    margin-top: 12px; display: flex; align-items: center; gap: 6px;
+    color: var(--text3); background: none; border: 1px dashed var(--border);
+    padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px;
+    font-family: 'Noto Sans SC', sans-serif; transition: all 0.15s; width: 100%;
+    justify-content: center;
+  }
+  .add-row-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* RIGHT PANEL - SUMMARY */
+  .summary-panel {
+    border-left: 1px solid var(--border);
+    padding: 24px 20px;
+    display: flex; flex-direction: column; gap: 20px;
+    position: sticky; top: 61px; height: calc(100vh - 61px);
+    overflow-y: auto;
+  }
+
+  .section-label {
+    font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace;
+    text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px;
+  }
+
+  /* TIER CARDS */
+  .tier-card {
+    border-radius: 8px; padding: 14px 16px; border: 1px solid;
+    transition: all 0.2s;
+  }
+  .tier-card-A { background: var(--A-bg); border-color: var(--A-border); }
+  .tier-card-B { background: var(--B-bg); border-color: var(--B-border); }
+  .tier-card-C { background: var(--C-bg); border-color: var(--C-border); }
+  .tier-card-D { background: var(--D-bg); border-color: var(--D-border); }
+
+  .tier-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .tier-card-title { font-size: 12px; font-weight: 500; }
+  .tier-card-count { font-family: 'DM Mono', monospace; font-size: 22px; font-weight: 500; }
+  .tier-card-A .tier-card-title, .tier-card-A .tier-card-count { color: var(--A); }
+  .tier-card-B .tier-card-title, .tier-card-B .tier-card-count { color: var(--B); }
+  .tier-card-C .tier-card-title, .tier-card-C .tier-card-count { color: var(--C); }
+  .tier-card-D .tier-card-title, .tier-card-D .tier-card-count { color: var(--D); }
+  .tier-card-desc { font-size: 11px; color: var(--text2); line-height: 1.5; }
+  .tier-stores { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .tier-store-tag {
+    font-size: 11px; padding: 2px 8px; border-radius: 3px;
+    font-family: 'DM Mono', monospace; border: 1px solid;
+  }
+  .tier-card-A .tier-store-tag { color: var(--A); border-color: var(--A-border); background: rgba(34,197,94,0.05); }
+  .tier-card-B .tier-store-tag { color: var(--B); border-color: var(--B-border); background: rgba(59,130,246,0.05); }
+  .tier-card-C .tier-store-tag { color: var(--C); border-color: var(--C-border); background: rgba(245,158,11,0.05); }
+  .tier-card-D .tier-store-tag { color: var(--D); border-color: var(--D-border); background: rgba(239,68,68,0.05); }
+
+  /* STAFF ALLOCATION */
+  .staff-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .staff-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .staff-row:last-child { border-bottom: none; }
+  .staff-label { color: var(--text2); }
+  .staff-val { font-family: 'DM Mono', monospace; color: var(--text); }
+  .staff-warn { color: var(--D); font-size: 11px; margin-top: 10px; line-height: 1.6; padding: 8px 10px; background: var(--D-bg); border-radius: 4px; border-left: 2px solid var(--D); }
+  .staff-ok { color: var(--A); font-size: 11px; margin-top: 10px; line-height: 1.6; padding: 8px 10px; background: var(--A-bg); border-radius: 4px; border-left: 2px solid var(--A); }
+
+  /* SCORE BAR */
+  .score-bar-wrap { width: 60px; height: 4px; background: var(--surface2); border-radius: 2px; display: inline-block; vertical-align: middle; margin-right: 6px; }
+  .score-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+
+  /* EMPTY STATE */
+  .empty-hint { color: var(--text3); font-size: 12px; text-align: center; padding: 40px 0; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* DIMENSION LEGEND */
+  .dim-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .dim-item { font-size: 11px; color: var(--text2); display: flex; align-items: center; gap: 6px; }
+  .dim-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; }
+    .summary-panel { position: static; height: auto; border-left: none; border-top: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">TIER/SYS</div>
+    <div class="header-title">店铺分层管理系统</div>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-ghost btn-sm" onclick="loadDemo()">填入示例数据</button>
+    <button class="btn btn-ghost btn-sm" onclick="clearAll()">清空</button>
+    <button class="btn btn-primary btn-sm" onclick="addRow()">+ 添加店铺</button>
+  </div>
+</div>
+
+<div class="main">
+  <!-- LEFT: TABLE -->
+  <div class="table-panel">
+    <div class="panel-header">
+      <div class="panel-title">店铺数据录入</div>
+      <div class="store-count" id="store-count">0 家店铺</div>
+    </div>
+
+    <!-- DIMENSION LEGEND -->
+    <div class="dim-legend" style="margin-bottom:16px">
+      <div class="dim-item"><div class="dim-dot" style="background:#7c6ee6"></div>净利润 权重30%</div>
+      <div class="dim-item"><div class="dim-dot" style="background:#3b82f6"></div>月GMV 权重25%</div>
+      <div class="dim-item"><div class="dim-dot" style="background:#22c55e"></div>3月增速 权重20%</div>
+      <div class="dim-item"><div class="dim-dot" style="background:#f59e0b"></div>转化率 权重15%</div>
+      <div class="dim-item"><div class="dim-dot" style="background:#ef4444"></div>DSR评分 权重10%</div>
+    </div>
+
+    <div style="overflow-x:auto">
+    <table id="store-table">
+      <thead>
+        <tr>
+          <th style="width:32px">#</th>
+          <th class="store-name-cell">店铺名称</th>
+          <th>净利润(元)<br><span class="weight">×30%</span></th>
+          <th>月GMV(元)<br><span class="weight">×25%</span></th>
+          <th>3月增速(%)<br><span class="weight">×20%</span></th>
+          <th>转化率(%)<br><span class="weight">×15%</span></th>
+          <th>DSR评分<br><span class="weight">×10%</span></th>
+          <th style="text-align:right">综合得分</th>
+          <th>分级</th>
+          <th style="width:32px"></th>
+        </tr>
+      </thead>
+      <tbody id="store-tbody"></tbody>
+    </table>
+    </div>
+    <button class="add-row-btn" onclick="addRow()">＋ 添加店铺（最多30家）</button>
+
+    <!-- SCORING LOGIC NOTE -->
+    <div style="margin-top:24px;padding:16px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+      <div class="section-label" style="margin-bottom:10px">评分逻辑说明</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.8">
+        <b style="color:var(--text)">净利润</b>：≥5万得满分100，2–5万得60，0–2万得30，亏损得0<br>
+        <b style="color:var(--text)">月GMV</b>：≥50万得100，20–50万得70，5–20万得40，&lt;5万得15<br>
+        <b style="color:var(--text)">3月增速</b>：≥30%得100，10–30%得70，0–10%得45，负增长得10<br>
+        <b style="color:var(--text)">转化率</b>：≥5%得100，3–5%得70，1–3%得40，&lt;1%得10<br>
+        <b style="color:var(--text)">DSR评分</b>：≥4.8得100，4.6–4.8得70，4.4–4.6得40，&lt;4.4得0
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: SUMMARY -->
+  <div class="summary-panel">
+    <div>
+      <div class="section-label">分层结果</div>
+      <div style="display:flex;flex-direction:column;gap:10px" id="tier-cards">
+        <div class="empty-hint">录入店铺数据后自动显示</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">7人团队分配建议</div>
+      <div class="staff-box" id="staff-box">
+        <div class="staff-row"><span class="staff-label">A类 专责运营</span><span class="staff-val" id="s-A">—</span></div>
+        <div class="staff-row"><span class="staff-label">B类 重点培育</span><span class="staff-val" id="s-B">—</span></div>
+        <div class="staff-row"><span class="staff-label">C类 多店维持</span><span class="staff-val" id="s-C">—</span></div>
+        <div class="staff-row"><span class="staff-label">D类 观察/关闭</span><span class="staff-val" id="s-D">—</span></div>
+        <div id="staff-advice"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">分层判断标准</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px">
+          <span class="tier-badge tier-A">A</span>
+          <span style="color:var(--text2)">70分以上 · 现金牛 · 专人精耕</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px">
+          <span class="tier-badge tier-B">B</span>
+          <span style="color:var(--text2)">45–70分 · 潜力股 · 重点培育</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px">
+          <span class="tier-badge tier-C">C</span>
+          <span style="color:var(--text2)">20–45分 · 维持盘 · 多店1人</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px">
+          <span class="tier-badge tier-D">D</span>
+          <span style="color:var(--text2)">20分以下 · 关店候选 · 停止投入</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let stores = [];
+let nextId = 1;
+
+// ---- SCORING ----
+function scoreProfit(v) {
+  if (v >= 50000) return 100;
+  if (v >= 20000) return 60 + (v-20000)/30000*40;
+  if (v >= 0) return v/20000*30;
+  return 0;
+}
+function scoreGMV(v) {
+  if (v >= 500000) return 100;
+  if (v >= 200000) return 70 + (v-200000)/300000*30;
+  if (v >= 50000) return 40 + (v-50000)/150000*30;
+  return Math.max(0, v/50000*15);
+}
+function scoreGrowth(v) {
+  if (v >= 30) return 100;
+  if (v >= 10) return 70 + (v-10)/20*30;
+  if (v >= 0) return 45 + v/10*25;
+  return Math.max(0, 45 + v*1.5);
+}
+function scoreConv(v) {
+  if (v >= 5) return 100;
+  if (v >= 3) return 70 + (v-3)/2*30;
+  if (v >= 1) return 40 + (v-1)/2*30;
+  return Math.max(0, v/1*10);
+}
+function scoreDSR(v) {
+  if (v >= 4.8) return 100;
+  if (v >= 4.6) return 70 + (v-4.6)/0.2*30;
+  if (v >= 4.4) return 40 + (v-4.4)/0.2*30;
+  return 0;
+}
+function calcScore(s) {
+  if (!s.profit && !s.gmv && !s.growth && !s.conv && !s.dsr) return null;
+  const p = scoreProfit(parseFloat(s.profit)||0);
+  const g = scoreGMV(parseFloat(s.gmv)||0);
+  const gr = scoreGrowth(parseFloat(s.growth)||0);
+  const c = scoreConv(parseFloat(s.conv)||0);
+  const d = scoreDSR(parseFloat(s.dsr)||0);
+  return p*0.30 + g*0.25 + gr*0.20 + c*0.15 + d*0.10;
+}
+function getTier(score) {
+  if (score === null) return null;
+  if (score >= 70) return 'A';
+  if (score >= 45) return 'B';
+  if (score >= 20) return 'C';
+  return 'D';
+}
+function scoreColor(score) {
+  if (score === null) return 'var(--text3)';
+  if (score >= 70) return 'var(--A)';
+  if (score >= 45) return 'var(--B)';
+  if (score >= 20) return 'var(--C)';
+  return 'var(--D)';
+}
+
+// ---- RENDER ----
+function renderTable() {
+  const tbody = document.getElementById('store-tbody');
+  tbody.innerHTML = '';
+  stores.forEach((s, i) => {
+    const score = calcScore(s);
+    const tier = getTier(score);
+    const scoreStr = score !== null ? score.toFixed(1) : '—';
+    const barW = score !== null ? Math.min(100, score) : 0;
+    const barColor = scoreColor(score);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);padding-left:10px">${i+1}</td>
+      <td class="store-name-cell">
+        <input class="store-name-input" value="${s.name}" placeholder="店铺${i+1}" oninput="updateStore(${s.id},'name',this.value)">
+      </td>
+      <td><input class="num-input" type="number" value="${s.profit}" placeholder="0" oninput="updateStore(${s.id},'profit',this.value)"></td>
+      <td><input class="num-input" type="number" value="${s.gmv}" placeholder="0" oninput="updateStore(${s.id},'gmv',this.value)"></td>
+      <td><input class="num-input" type="number" value="${s.growth}" placeholder="0" oninput="updateStore(${s.id},'growth',this.value)"></td>
+      <td><input class="num-input" type="number" step="0.1" value="${s.conv}" placeholder="0" oninput="updateStore(${s.id},'conv',this.value)"></td>
+      <td><input class="num-input" type="number" step="0.01" value="${s.dsr}" placeholder="4.80" oninput="updateStore(${s.id},'dsr',this.value)"></td>
+      <td class="score-cell">
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
+          <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${barW}%;background:${barColor}"></div></div>
+          <span style="color:${barColor};min-width:36px;text-align:right">${scoreStr}</span>
+        </div>
+      </td>
+      <td><span class="tier-badge ${tier ? 'tier-'+tier : 'tier-none'}">${tier || '—'}</span></td>
+      <td><button class="del-btn" onclick="deleteStore(${s.id})">×</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('store-count').textContent = `${stores.length} 家店铺`;
+  renderSummary();
+}
+
+function renderSummary() {
+  const counts = {A:[], B:[], C:[], D:[]};
+  stores.forEach(s => {
+    const score = calcScore(s);
+    const tier = getTier(score);
+    if (tier) counts[tier].push(s.name || `店铺`);
+  });
+
+  const total = stores.filter(s => calcScore(s) !== null).length;
+  if (total === 0) {
+    document.getElementById('tier-cards').innerHTML = '<div class="empty-hint">录入店铺数据后自动显示</div>';
+    ['A','B','C','D'].forEach(t => document.getElementById('s-'+t).textContent = '—');
+    document.getElementById('staff-advice').innerHTML = '';
+    return;
+  }
+
+  const defs = {
+    A: { label: 'A类 · 现金牛', desc: '专人精耕，上新不追量，保护利润' },
+    B: { label: 'B类 · 潜力股', desc: '重点培育，投入对了可升A类' },
+    C: { label: 'C类 · 维持盘', desc: '1人多店，等资源释放再投入' },
+    D: { label: 'D类 · 关店候选', desc: '停止主动投入，30天自然流量观察' },
+  };
+
+  document.getElementById('tier-cards').innerHTML = ['A','B','C','D'].map(t => {
+    const n = counts[t].length;
+    const tags = counts[t].slice(0,8).map(name => `<span class="tier-store-tag">${name||'未命名'}</span>`).join('');
+    const more = counts[t].length > 8 ? `<span class="tier-store-tag">+${counts[t].length-8}</span>` : '';
+    return `<div class="tier-card tier-card-${t}">
+      <div class="tier-card-header">
+        <div class="tier-card-title">${defs[t].label}</div>
+        <div class="tier-card-count">${n}</div>
+      </div>
+      <div class="tier-card-desc">${defs[t].desc}</div>
+      ${n > 0 ? `<div class="tier-stores">${tags}${more}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  // Staff allocation
+  const nA = counts.A.length, nB = counts.B.length, nC = counts.C.length, nD = counts.D.length;
+  // A: 1人/店, B: 1人/2店(min1), C: 1人/3店(min0), D: 0
+  const staffA = nA;
+  const staffB = Math.max(nB > 0 ? 1 : 0, Math.ceil(nB/2));
+  const staffC = nC > 0 ? Math.ceil(nC/3) : 0;
+  const staffD = 0;
+  const total_staff = staffA + staffB + staffC + staffD;
+
+  document.getElementById('s-A').textContent = nA > 0 ? `${staffA}人（1人/店）` : '无';
+  document.getElementById('s-B').textContent = nB > 0 ? `${staffB}人（1人/2店）` : '无';
+  document.getElementById('s-C').textContent = nC > 0 ? `${staffC}人（1人/3店）` : '无';
+  document.getElementById('s-D').textContent = nD > 0 ? `${nD}店暂停投入` : '无';
+
+  const adviceEl = document.getElementById('staff-advice');
+  if (total_staff > 7) {
+    adviceEl.innerHTML = `<div class="staff-warn">⚠️ 当前需要 ${total_staff} 人，超出7人上限。建议先关闭 ${nD} 家D类店铺，释放运营精力。不是加人，是减店。</div>`;
+  } else if (total_staff <= 7 && total > 0) {
+    adviceEl.innerHTML = `<div class="staff-ok">✓ 当前需要 ${total_staff} 人，7人团队可承载。</div>`;
+  } else {
+    adviceEl.innerHTML = '';
+  }
+}
+
+// ---- CRUD ----
+function addRow() {
+  if (stores.length >= 30) { alert('最多录入30家店铺'); return; }
+  stores.push({ id: nextId++, name: '', profit: '', gmv: '', growth: '', conv: '', dsr: '' });
+  renderTable();
+}
+function deleteStore(id) {
+  stores = stores.filter(s => s.id !== id);
+  renderTable();
+}
+function updateStore(id, field, value) {
+  const s = stores.find(s => s.id === id);
+  if (s) { s[field] = value; renderSummary(); }
+}
+
+// ---- DEMO DATA ----
+function loadDemo() {
+  const demo = [
+    { name: '旗舰店-A', profit: 68000, gmv: 620000, growth: 22, conv: 5.2, dsr: 4.92 },
+    { name: '品牌店-B', profit: 45000, gmv: 380000, growth: 35, conv: 4.1, dsr: 4.85 },
+    { name: '专营店-C', profit: 52000, gmv: 510000, growth: 8, conv: 4.8, dsr: 4.88 },
+    { name: '联营店-D', profit: 18000, gmv: 160000, growth: 45, conv: 3.2, dsr: 4.75 },
+    { name: '区域店-E', profit: 28000, gmv: 240000, growth: 18, conv: 3.8, dsr: 4.80 },
+    { name: '试验店-F', profit: 8000, gmv: 90000, growth: 12, conv: 2.1, dsr: 4.68 },
+    { name: '清仓店-G', profit: -5000, gmv: 45000, growth: -15, conv: 1.2, dsr: 4.50 },
+    { name: '新开店-H', profit: 3000, gmv: 35000, growth: 80, conv: 2.8, dsr: 4.72 },
+    { name: '老字号-I', profit: 55000, gmv: 480000, growth: -5, conv: 5.8, dsr: 4.95 },
+    { name: '亏损店-J', profit: -12000, gmv: 28000, growth: -25, conv: 0.8, dsr: 4.30 },
+    { name: '潜力店-K', profit: 22000, gmv: 190000, growth: 28, conv: 3.5, dsr: 4.78 },
+  ];
+  stores = demo.map((d, i) => ({ id: nextId++, ...d }));
+  renderTable();
+}
+
+function clearAll() {
+  if (stores.length > 0 && !confirm('确认清空所有店铺数据？')) return;
+  stores = [];
+  nextId = 1;
+  renderTable();
+}
+
+// INIT
+renderTable();
+</script>
+</body>
+</html>
