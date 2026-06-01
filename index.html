@@ -216,6 +216,10 @@
     .summary-panel { position: static; height: auto; border-left: none; border-top: 1px solid var(--border); }
   }
 </style>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -227,6 +231,12 @@
   <div class="header-right">
     <button class="btn btn-ghost btn-sm" onclick="loadDemo()">填入示例数据</button>
     <button class="btn btn-ghost btn-sm" onclick="clearAll()">清空</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportData()">导出数据</button>
+    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('importFile').click()">导入数据</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportExcel()">导出Excel</button>
+    <input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none" onchange="importExcel(event)">
+    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('excelFile').click()">导入Excel</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
     <button class="btn btn-primary btn-sm" onclick="addRow()">+ 添加店铺</button>
   </div>
 </div>
@@ -269,7 +279,15 @@
     </div>
     <button class="add-row-btn" onclick="addRow()">＋ 添加店铺（最多30家）</button>
 
-    <!-- SCORING LOGIC NOTE -->
+    
+<div style="margin-top:24px;padding:16px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+<div class="section-label">经营分析看板</div>
+<canvas id="tierChart" height="180"></canvas>
+<canvas id="gmvChart" height="220" style="margin-top:20px"></canvas>
+<div id="reportBox" style="margin-top:15px;font-size:12px;color:var(--text2);line-height:1.8"></div>
+</div>
+
+<!-- SCORING LOGIC NOTE -->
     <div style="margin-top:24px;padding:16px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
       <div class="section-label" style="margin-bottom:10px">评分逻辑说明</div>
       <div style="font-size:12px;color:var(--text2);line-height:1.8">
@@ -418,7 +436,7 @@ function renderTable() {
     tbody.appendChild(tr);
   });
   document.getElementById('store-count').textContent = `${stores.length} 家店铺`;
-  renderSummary();
+  renderSummary(); renderDashboard();
 }
 
 function renderSummary() {
@@ -487,14 +505,40 @@ function addRow() {
   if (stores.length >= 30) { alert('最多录入30家店铺'); return; }
   stores.push({ id: nextId++, name: '', profit: '', gmv: '', growth: '', conv: '', dsr: '' });
   renderTable();
+  saveData();
 }
 function deleteStore(id) {
   stores = stores.filter(s => s.id !== id);
   renderTable();
+  saveData();
 }
 function updateStore(id, field, value) {
   const s = stores.find(s => s.id === id);
-  if (s) { s[field] = value; renderSummary(); }
+  if (s) { s[field] = value; renderSummary(); renderDashboard(); saveData(); }
+}
+
+
+// ---- LOCAL STORAGE ----
+function saveData() {
+  localStorage.setItem('storeTierData', JSON.stringify({
+    stores: stores,
+    nextId: nextId
+  }));
+}
+
+function loadData() {
+  const raw = localStorage.getItem('storeTierData');
+  if (!raw) return false;
+  try {
+    const data = JSON.parse(raw);
+    stores = data.stores || [];
+    nextId = data.nextId || 1;
+    renderTable();
+    return true;
+  } catch(e) {
+    console.error(e);
+    return false;
+  }
 }
 
 // ---- DEMO DATA ----
@@ -514,6 +558,7 @@ function loadDemo() {
   ];
   stores = demo.map((d, i) => ({ id: nextId++, ...d }));
   renderTable();
+  saveData();
 }
 
 function clearAll() {
@@ -521,10 +566,120 @@ function clearAll() {
   stores = [];
   nextId = 1;
   renderTable();
+  saveData();
+}
+
+
+function exportData(){
+  const data={stores:stores,nextId:nextId};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='店铺分层数据.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importData(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=JSON.parse(e.target.result);
+      stores=data.stores||[];
+      nextId=data.nextId||1;
+      renderTable();
+      saveData();
+      alert('导入成功');
+    }catch(err){
+      alert('导入失败，请选择正确的数据文件');
+    }
+  };
+  reader.readAsText(file,'utf-8');
+}
+
+
+
+function exportExcel(){
+  if(typeof XLSX==='undefined'){ alert('Excel库未加载'); return; }
+  const ws=XLSX.utils.json_to_sheet(stores||[]);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'店铺数据');
+  XLSX.writeFile(wb,'店铺分层数据.xlsx');
+}
+
+function importExcel(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const data=new Uint8Array(e.target.result);
+    const wb=XLSX.read(data,{type:'array'});
+    const sheet=wb.Sheets[wb.SheetNames[0]];
+    stores=XLSX.utils.sheet_to_json(sheet);
+    nextId=(stores.length||0)+1;
+    renderTable();
+    saveData();
+    alert('Excel导入成功');
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+
+let tierChart=null,gmvChart=null;
+
+function renderDashboard(){
+ const counts={A:0,B:0,C:0,D:0};
+ stores.forEach(s=>{
+   const t=getTier(calcScore(s));
+   if(t) counts[t]++;
+ });
+
+ const ctx1=document.getElementById('tierChart');
+ if(ctx1){
+   if(tierChart) tierChart.destroy();
+   tierChart=new Chart(ctx1,{
+     type:'doughnut',
+     data:{labels:['A','B','C','D'],
+     datasets:[{data:[counts.A,counts.B,counts.C,counts.D]}]},
+     options:{responsive:true}
+   });
+ }
+
+ const top=[...stores]
+ .map(s=>({name:s.name||'未命名',gmv:Number(s.gmv)||0}))
+ .sort((a,b)=>b.gmv-a.gmv)
+ .slice(0,10);
+
+ const ctx2=document.getElementById('gmvChart');
+ if(ctx2){
+   if(gmvChart) gmvChart.destroy();
+   gmvChart=new Chart(ctx2,{
+      type:'bar',
+      data:{
+        labels:top.map(x=>x.name),
+        datasets:[{data:top.map(x=>x.gmv)}]
+      },
+      options:{responsive:true}
+   });
+ }
+
+ const totalProfit=stores.reduce((a,s)=>a+(Number(s.profit)||0),0);
+ const totalGMV=stores.reduce((a,s)=>a+(Number(s.gmv)||0),0);
+ document.getElementById('reportBox').innerHTML=
+ `
+ <b>自动经营分析报告</b><br>
+ 店铺数：${stores.length} 家<br>
+ 总GMV：¥${totalGMV.toLocaleString()}<br>
+ 总净利润：¥${totalProfit.toLocaleString()}<br>
+ A类店铺：${counts.A} 家；B类店铺：${counts.B} 家；C类店铺：${counts.C} 家；D类店铺：${counts.D} 家<br>
+ 建议优先资源投入A/B类店铺，逐步淘汰持续亏损D类店铺。
+ `;
 }
 
 // INIT
-renderTable();
+if (!loadData()) { renderTable(); }
 </script>
 </body>
 </html>
